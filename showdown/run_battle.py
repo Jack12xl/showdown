@@ -133,7 +133,7 @@ async def start_battle(ps_websocket_client, pokemon_battle_type):
 
     reset_logger(logger, "{}-{}.log".format(battle.opponent.account_name, battle.battle_tag))
     await ps_websocket_client.send_message(battle.battle_tag, [config.greeting_message])
-    await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
+    #await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
 
     return battle
 
@@ -144,6 +144,9 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
 
         msg = await ps_websocket_client.receive_message()
         if battle_is_finished(msg):
+            if getattr(battle, "update_trainer", None):
+                await update_battle(battle, msg)
+                battle.update_trainer()
             winner = msg.split(constants.WIN_STRING)[-1].split('\n')[0].strip()
             logger.debug("Winner: {}".format(winner))
             await ps_websocket_client.send_message(battle.battle_tag, [config.battle_ending_message])
@@ -151,6 +154,9 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
             return winner
         else:
             action_required = await update_battle(battle, msg)
-            if action_required and not battle.wait:
-                best_move = await async_pick_move(battle)
-                await ps_websocket_client.send_message(battle.battle_tag, best_move)
+            if action_required:
+                if getattr(battle, "update_trainer", None):
+                    battle.update_trainer()
+                if not battle.wait:
+                    best_move = await async_pick_move(battle)
+                    await ps_websocket_client.send_message(battle.battle_tag, best_move)
