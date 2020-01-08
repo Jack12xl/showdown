@@ -3,6 +3,7 @@ import json
 import asyncio
 import concurrent.futures
 from copy import deepcopy
+from showdown.helpers import normalize_name
 
 import constants
 import config
@@ -14,6 +15,9 @@ from showdown.battle_modifier import update_battle
 
 from showdown.websocket_client import PSWebsocketClient
 
+import urllib.request
+
+headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0'}
 
 def battle_is_finished(msg):
     return constants.WIN_STRING in msg and constants.CHAT_STRING not in msg
@@ -139,9 +143,9 @@ async def start_battle(ps_websocket_client, pokemon_battle_type):
 
 
 async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
+
     battle = await start_battle(ps_websocket_client, pokemon_battle_type)
     while True:
-
         msg = await ps_websocket_client.receive_message()
         if battle_is_finished(msg):
             if getattr(battle, "update_trainer", None):
@@ -150,6 +154,13 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
             winner = msg.split(constants.WIN_STRING)[-1].split('\n')[0].strip()
             logger.debug("Winner: {}".format(winner))
             await ps_websocket_client.send_message(battle.battle_tag, [config.battle_ending_message])
+            score = await search_opponent_score(battle)
+            with open('record.txt','a') as f:
+                if winner == config.username:
+                    f.write('win {}\n'.format(score))
+                else:
+                    f.write('lose {}\n'.format(score))
+
             await ps_websocket_client.leave_battle(battle.battle_tag, save_replay=config.save_replay)
             return winner
         else:
@@ -160,3 +171,19 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
                 if not battle.wait:
                     best_move = await async_pick_move(battle)
                     await ps_websocket_client.send_message(battle.battle_tag, best_move)
+
+
+async def search_opponent_score(battle):
+    opponent_name = normalize_name(battle.opponent.account_name)
+    logger.debug("opponent_name : {}".format(opponent_name))
+    chaper_url = "https://play.pokemonshowdown.com/~~showdown/action.php?act=ladderget&user={}".format(opponent_name)
+    req = urllib.request.Request(url=chaper_url, headers=headers)
+    msg = urllib.request.urlopen(req).read()
+    information = json.loads(msg[1:])
+
+    score = '0'
+    for info in information:
+        if info['formatid'] == config.pokemon_mode:
+            score = info['elo']
+            break
+    return score

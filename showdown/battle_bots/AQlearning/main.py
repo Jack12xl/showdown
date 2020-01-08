@@ -22,6 +22,9 @@ REWARD_STATE = {'EW': -10.,#enery wins
                 'BD':.5#both die
                 }
 
+INITIAL_TRAINING_STATE =  {'f1': 0.4923693925863222, 'f3': 0.19700490865983275, 'f5': -0.9730244640695088, 'f10': -0.7500298197341401, 'f4': 1.0398028575447207, 'f7': -0.28953332349302796, 'f6': 0.7394594325367958, 'f2': -0.1223510335426042, 'f8': 0.13679490724144336, 'f9': 0.8833833788001207}
+
+
 def features(state):
     f = Counter()
     user_pkmn = state.self.active
@@ -98,6 +101,10 @@ def features(state):
 
 
 class TrainerOne(QlearningTrainer):
+    def __init__(self, **args):
+        QlearningTrainer.__init__(self, **args)
+        self.weights = Counter(INITIAL_TRAINING_STATE)
+
     def getFeatures(self, state, action):
         result = Counter()
         largest_prob = 0
@@ -179,4 +186,4 @@ class BattleBot(Battle):
 
         if self.last_state and self.last_chosen_action:
             self.trainer.update(self.last_state, self.last_chosen_action, battle, new_state=state)
-        logger.info(self.trainer.weights)
+        logger.debug(self.trainer.weights)
