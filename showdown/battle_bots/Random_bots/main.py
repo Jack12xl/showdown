@@ -20,6 +20,10 @@ class BattleBot(Battle):
         super(BattleBot, self).__init__(*args, **kwargs)
 
     def generate_random_move(self):
+        '''
+        Generate a random move from moves and switching
+        :return: a formatted random move
+        '''
         state = self.create_state()
         my_options = self.get_all_options()[0]
 
@@ -46,4 +50,14 @@ class BattleBot(Battle):
             logger.debug("Generate random move : {}".format(_choose))
 
         return format_decision(self, _choose)
+
+    def find_best_move(self):
+        '''
+        as templated
+        :return: a rmove
+
+        '''
+        return self.generate_random_move()
+
+
 
