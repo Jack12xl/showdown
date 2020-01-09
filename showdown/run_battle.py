@@ -137,7 +137,7 @@ async def start_battle(ps_websocket_client, pokemon_battle_type):
 
     reset_logger(logger, "{}-{}.log".format(battle.opponent.account_name, battle.battle_tag))
     await ps_websocket_client.send_message(battle.battle_tag, [config.greeting_message])
-    #await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
+    await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
 
     return battle
 
@@ -146,22 +146,32 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
 
     battle = await start_battle(ps_websocket_client, pokemon_battle_type)
     while True:
-        msg = await ps_websocket_client.receive_message()
+        #avoid disconnect
+        try:
+            msg = await ps_websocket_client.receive_message()
+        except:
+            ps_websocket_client = await PSWebsocketClient.create(config.username, config.password, config.websocket_uri)
+            await ps_websocket_client.login()
+            await ps_websocket_client.send_message("", ["/join {}".format(battle.battle_tag)])
+            msg = await ps_websocket_client.receive_message()
+
         if battle_is_finished(msg):
             if getattr(battle, "update_trainer", None):
                 await update_battle(battle, msg)
                 battle.update_trainer()
             winner = msg.split(constants.WIN_STRING)[-1].split('\n')[0].strip()
             logger.debug("Winner: {}".format(winner))
-            await ps_websocket_client.send_message(battle.battle_tag, [config.battle_ending_message])
             score = await search_opponent_score(battle)
             with open('record.txt','a') as f:
                 if winner == config.username:
                     f.write('win {}\n'.format(score))
                 else:
                     f.write('lose {}\n'.format(score))
-
-            await ps_websocket_client.leave_battle(battle.battle_tag, save_replay=config.save_replay)
+            try:
+                await ps_websocket_client.leave_battle(battle.battle_tag, save_replay=config.save_replay)
+            except:
+                ps_websocket_client = await PSWebsocketClient.create(config.username, config.password, config.websocket_uri)
+                await ps_websocket_client.login()
             return winner
         else:
             action_required = await update_battle(battle, msg)
@@ -170,7 +180,12 @@ async def pokemon_battle(ps_websocket_client, pokemon_battle_type):
                     battle.update_trainer()
                 if not battle.wait:
                     best_move = await async_pick_move(battle)
-                    await ps_websocket_client.send_message(battle.battle_tag, best_move)
+                    try:
+                        await ps_websocket_client.send_message(battle.battle_tag, best_move)
+                    except:
+                        ps_websocket_client = await PSWebsocketClient.create(config.username, config.password, config.websocket_uri)
+                        await ps_websocket_client.login()
+                        await ps_websocket_client.send_message(battle.battle_tag, best_move)
 
 
 async def search_opponent_score(battle):

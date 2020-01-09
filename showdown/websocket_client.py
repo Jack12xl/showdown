@@ -36,12 +36,7 @@ class PSWebsocketClient:
         return self
 
     async def receive_message(self):
-        try:
-            message = await self.websocket.recv()
-        except:
-            self.websocket = await websockets.connect(self.address)
-            await self.login()
-            message = await self.websocket.recv()
+        message = await self.websocket.recv()
         logger.debug("Received from websocket: {}".format(message))
         return message
 
@@ -50,8 +45,8 @@ class PSWebsocketClient:
         try:
             await self.websocket.send(message)
         except:
+            logger.debug("reconnecting in send")
             self.websocket = await websockets.connect(self.address)
-            await self.login()
             await self.websocket.send(message)
         self.last_message = message
         logger.debug("Sent to websocket: {}".format(message))
@@ -141,10 +136,6 @@ class PSWebsocketClient:
     async def leave_battle(self, battle_tag, save_replay=False):
         if save_replay:
             await self.save_replay(battle_tag)
-
-        message = ["/rating TinyLittleFish"]
-        await self.send_message('', message)
-        msg = await self.receive_message()
 
         message = ["/leave {}".format(battle_tag)]
         await self.send_message('', message)
