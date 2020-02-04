@@ -3,17 +3,18 @@ import json
 import asyncio
 import concurrent.futures
 from copy import deepcopy
+import logging
 
 import constants
 import config
-from config import logger
-from config import reset_logger
 from showdown.engine.evaluate import Scoring
 from showdown.battle import Pokemon
 from showdown.battle import LastUsedMove
 from showdown.battle_modifier import async_update_battle
 
 from showdown.websocket_client import PSWebsocketClient
+
+logger = logging.getLogger(__name__)
 
 
 def battle_is_finished(msg):
@@ -32,9 +33,9 @@ async def async_pick_move(battle):
         )
     choice = best_move[0]
     if constants.SWITCH_STRING in choice:
-        battle.user.last_used_move = LastUsedMove(battle.user.active.name, "switch {}".format(choice.split()[-1]))
+        battle.user.last_used_move = LastUsedMove(battle.user.active.name, "switch {}".format(choice.split()[-1]), battle.turn)
     else:
-        battle.user.last_used_move = LastUsedMove(battle.user.active.name, choice.split()[2])
+        battle.user.last_used_move = LastUsedMove(battle.user.active.name, choice.split()[2], battle.turn)
     return best_move
 
 
@@ -145,7 +146,6 @@ async def start_battle(ps_websocket_client, pokemon_battle_type):
     else:
         battle = await start_standard_battle(ps_websocket_client, pokemon_battle_type)
 
-    reset_logger(logger, "{}-{}.log".format(battle.opponent.account_name, battle.battle_tag))
     await ps_websocket_client.send_message(battle.battle_tag, [config.greeting_message])
     await ps_websocket_client.send_message(battle.battle_tag, ['/timer on'])
 
